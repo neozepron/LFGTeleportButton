@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] - 2025-11-18
+## [1.1.0] Release- 2025-11-18
 
 ### Changed
 - **API Modernization**: Fully migrated to modern WoW APIs (The War Within / 11.0+).
