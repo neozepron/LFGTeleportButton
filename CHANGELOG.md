@@ -2,7 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] Release- 2025-11-18
+## [1.2.0] - 2025-11-22
+
+### Changed
+- Teleport button now appears when you accept the invite instead of when you receive it.
+
+## [1.1.0] - 2025-11-18
 
 ### Changed
 - **API Modernization**: Fully migrated to modern WoW APIs (The War Within / 11.0+).
@@ -33,6 +38,10 @@ All notable changes to this project will be documented in this file.
 
 ### [0.1.2]
 - Initial release with TWW Season 3 dungeon support
+
+
+
+
 
 
 

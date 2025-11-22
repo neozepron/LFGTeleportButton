@@ -3,7 +3,7 @@
 ## IconTexture: Interface/AddOns/LFGTeleportButton/Media/portal.blp
 ## Notes: Shows a secure teleport button when your LFG M+ application is invited (TWW S3 dungeons only)
 ## Author: Qabhal EU Twisting-Nether
-## Version: 1.1.0
+## Version: 1.2.0
 ## SavedVariables: TPB_DB
 ## OptionalDeps: LibSharedMedia-3.0, AceGUI-3.0, AceGUI-3.0-SharedMediaWidgets
 LFGTeleportButton.lua

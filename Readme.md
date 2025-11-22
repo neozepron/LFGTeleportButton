@@ -19,7 +19,7 @@ Season coverage: **The War Within – Season 3** (static Group Finder activity I
 - Priory of the Sacred Flame — icon **5899331**, spell **445444**  
 - Operation: Floodgate — icon **6392629**, spell **1216786**  
 - Halls of Atonement — icon **3601526**, spell **354465**  
-- Echo-dome Al'dari — icon **6921877**, spell **1237124**
+- Echo-dome Al'dari — icon **6921877**, spell **1237215**
 
 ## Commands
 - `/tpbutton lock` — toggles drag lock

@@ -278,6 +278,8 @@ local notLearnedSoundPlayed = false
 local showGitGudUntil = nil
 local NOT_LEARNED_SFX = "Interface\\AddOns\\LFGTeleportButton\\SHaoKhanlaughing.mp3"
 local currentIconID = nil
+local pendingInviteDungeon = nil  -- Store dungeon info when invited, show button when accepted
+local pendingInviteApplicationID = nil  -- Track which invitation is pending
 -- Forward declaration for lock toggle handler so options UI can reference it
 local setLockedState
 
@@ -633,6 +635,8 @@ btn:SetScript("OnMouseUp", function(self, mouseButton)
     pendingApply = false
     pendingSecureUpdate = false
     suppressedByCombat = false
+    pendingInviteDungeon = nil
+    pendingInviteApplicationID = nil
     if InCombatLockdown and InCombatLockdown() then
       -- Avoid protected Show/Hide in combat; fade out instead
       self:SetAlpha(0)
@@ -806,9 +810,16 @@ SlashCmdList.TPBUTTON = function(msg)
       local known = isTeleportKnown(d.spell)
       local spellName = getSpellName(d.spell)
       Print(i..": "..d.name)
-      Print("  Spell ID: "..tostring(d.spell).." (known: "..tostring(known)..", name: "..(spellName or "nil")..")")
-      Print("  Icon ID: "..tostring(d.icon))
-      Print("  Triggers: "..table.concat(d.triggers, ", "))
+      Print("  Spell ID: "..tostring(d.spell))
+      Print("  -> isTeleportKnown: "..tostring(known))
+      if C_Spell and C_Spell.IsSpellKnownOrOverridesKnown then
+        Print("  -> C_Spell.IsSpellKnownOrOverridesKnown: "..tostring(C_Spell.IsSpellKnownOrOverridesKnown(d.spell)))
+      end
+      if IsPlayerSpell then
+        Print("  -> IsPlayerSpell: "..tostring(IsPlayerSpell(d.spell)))
+      end
+      Print("  -> Name: "..(spellName or "nil"))
+      Print("  -> Icon: "..tostring(d.icon))
     end
     Print("=== Activity Mappings ===")
     for activityID, dungeonIndex in pairs(ACTIVITY_TO_DUNGEON) do
@@ -854,6 +865,7 @@ f:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 f:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 f:RegisterEvent("SPELLS_CHANGED")
 f:RegisterEvent("PLAYER_REGEN_ENABLED")
+f:RegisterEvent("GROUP_ROSTER_UPDATE")
 
 applyPositionAndSizeFromDB = function()
   btn:SetSize(TPB_DB.size.w, TPB_DB.size.h)
@@ -885,10 +897,11 @@ f:SetScript("OnEvent", function(self, event, ...)
     -- (applicationID, newStatus, oldStatus, groupID)
     local applicationID, newStatus, oldStatus, groupID = ...
     if newStatus == "invited" then
+      -- Store dungeon info when invited, but don't show button yet
       -- Reset user dismissal state for new invitations
       userDismissed = false
       -- Store this applicationID so we know which invitation the button is for
-      currentApplicationID = applicationID
+      pendingInviteApplicationID = applicationID
       local info
       -- Prefer resolving via applicationID → searchResultID → info
       if applicationID and C_LFGList.GetApplicationInfo then
@@ -917,7 +930,8 @@ f:SetScript("OnEvent", function(self, event, ...)
         d = matchDungeonFromActivity(info and info.activityID, listName)
       end
       if d then
-        applyDungeon(d)
+        -- Store dungeon info but don't show button yet - wait for acceptance
+        pendingInviteDungeon = d
       else
         -- Rate-limit non-match prints using applicationID when available
         local key = applicationID or groupID or "unknown"
@@ -925,10 +939,26 @@ f:SetScript("OnEvent", function(self, event, ...)
           nonMatchPrinted[key] = true
           Print("Listing did not match a TWW S3 dungeon; button not shown.")
         end
+        pendingInviteDungeon = nil
+        pendingInviteApplicationID = nil
+      end
+    elseif newStatus == "inviteAccepted" or (oldStatus == "invited" and newStatus ~= "invited" and newStatus ~= "declined" and newStatus ~= "cancelled" and newStatus ~= "failed" and newStatus ~= "timedout") then
+      -- Show button when invite is accepted
+      -- Check if we have a pending invite for this application
+      if pendingInviteDungeon and (not applicationID or applicationID == pendingInviteApplicationID) then
+        currentApplicationID = pendingInviteApplicationID
+        applyDungeon(pendingInviteDungeon)
+        pendingInviteDungeon = nil
+        pendingInviteApplicationID = nil
       end
     elseif newStatus == "declined" or newStatus == "cancelled" or newStatus == "failed" or newStatus == "timedout" then
       -- Clear rate-limit entry regardless of key type
       nonMatchPrinted[applicationID or groupID] = nil
+      -- Clear pending invite if this is the one we were tracking
+      if applicationID == pendingInviteApplicationID then
+        pendingInviteDungeon = nil
+        pendingInviteApplicationID = nil
+      end
       -- Only hide the button if this status change is for the CURRENT invitation
       -- When you apply to multiple dungeons and get invited to one, WoW cancels all other applications
       -- We don't want to hide the button when those OTHER applications get cancelled
@@ -956,6 +986,8 @@ f:SetScript("OnEvent", function(self, event, ...)
       pendingApply = false
       pendingSecureUpdate = false
       suppressedByCombat = false
+      pendingInviteDungeon = nil
+      pendingInviteApplicationID = nil
       btn:Hide()
     end
 
@@ -1025,6 +1057,27 @@ f:SetScript("OnEvent", function(self, event, ...)
     if suppressedByCombat then
       suppressedByCombat = false
       btn:SetAlpha(1)
+    end
+
+  elseif event == "GROUP_ROSTER_UPDATE" then
+    -- Check if player joined a group and we have a pending invite
+    -- This handles cases where the status change event doesn't fire properly
+    if pendingInviteDungeon and not currentDungeon then
+      -- Check if player is actually in a group now
+      local inGroup = false
+      if IsInGroup and IsInGroup() then
+        inGroup = true
+      elseif IsInRaid and IsInRaid() then
+        inGroup = true
+      end
+      
+      if inGroup then
+        -- Player joined a group, show the button
+        currentApplicationID = pendingInviteApplicationID
+        applyDungeon(pendingInviteDungeon)
+        pendingInviteDungeon = nil
+        pendingInviteApplicationID = nil
+      end
     end
   end
 end)
